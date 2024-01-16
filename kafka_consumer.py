@@ -25,14 +25,14 @@ def run():
 
     consumer = KafkaConsumer(
         #topic,
-        bootstrap_servers='194.187.246.240:9093',
+        bootstrap_servers='',
         auto_offset_reset='earliest',
         security_protocol='SSL',
         ssl_check_hostname=False,
-        ssl_cafile='/home/maguser/airflow/config/ca-cert',
-        ssl_certfile='/home/maguser/airflow/config/S0145_MAGNUM_certificate.pem',
-        ssl_keyfile='/home/maguser/airflow/config/S0145_MAGNUM_key.pem',
-        ssl_password='9trxj9gbpwaprud84trhx934',
+        ssl_cafile='/ca-cert',
+        ssl_certfile='/certificate.pem',
+        ssl_keyfile='/key.pem',
+        ssl_password='',
         consumer_timeout_ms=60000,
         #max_poll_records=1,
         max_poll_interval_ms=600000,
@@ -44,12 +44,11 @@ def run():
     if consumer:
         print('Connected to Kafka broker')
     
-    topic = 'OUT.S0145.PAYMENTS'
+    topic = 'PAYMENTS'
     consumer.subscribe([topic])
-    engine = create_engine(f"postgresql://ykhan:{Variable.get('yk_p')}@172.16.10.22:5432/adb", pool_pre_ping=True)
-    col_name = ['address','trade_point_rfo_code','tm_terminal_id','rrn','tran_date','reg_date','payment_type','payment_channel',\
-                        'kbs_debit','card_num','tran_amt','payment_amt','commission_amount','commission_rate','pay_comm_amt','pay_comm_rate','ind_str','unique_hash','user_hash']
-    sql_query = """select unique_hash from dwh_big_data.payments_kaspi"""
+    engine = create_engine(f"postgresql://", pool_pre_ping=True)
+    col_name = ['address','trade_point_rfo_code','tm_terminal_id','rrn','tran_date','reg_date','payment_type','payment_channel']
+    sql_query = """select """
 
     while True:
         records = []
@@ -70,20 +69,9 @@ def run():
                     reg_date = val.get('REG_DATE')
                     payment_type = val.get('PAYMENT_TYPE')
                     payment_channel = val.get('PAYMENT_CHANNEL')
-                    kbs_debit = val.get('KBS_DEBIT')
-                    card_num = val.get('CARD_NUM')
-                    tran_amt = val.get('TRAN_AMT')
-                    payment_amt = val.get('PAYMENT_AMT')
-                    commission_amount = val.get('COMMISSION_AMOUNT')
-                    commission_rate = val.get('COMMISSION_RATE')
-                    pay_comm_amt = val.get('PAY_COMM_AMT')
-                    pay_comm_rate = val.get('PAY_COMM_RATE')
-                    ind_str = str(msg.offset) + "_" + msg.topic + "_" + str(msg.partition)
-                    unique_hash = val.get('UNIQUE_HASH')
-                    user_hash = val.get('USER_HASH')
 
-                    recs = (address,trade_point_rfo_code,tm_terminal_id,rrn,tran_date,reg_date,payment_type,payment_channel,\
-                            kbs_debit,card_num,tran_amt,payment_amt,commission_amount,commission_rate,pay_comm_amt,pay_comm_rate,ind_str,unique_hash, user_hash)
+
+                    recs = (address,trade_point_rfo_code,tm_terminal_id,rrn,tran_date,reg_date,payment_type,payment_channel)
                     records.append(recs)
                     i = i + 1
                     if i == 1:
@@ -99,7 +87,7 @@ def run():
                             df = df.drop_duplicates(['unique_hash'])
                             existing = pd.read_sql(sql_query, engine)
                             mask = ~df.unique_hash.isin(existing.unique_hash)
-                            df.loc[mask].to_sql('payments_kaspi', con=engine, schema='dwh_big_data', if_exists='append', index=False, method='multi', chunksize=100_000)
+                            df.loc[mask].to_sql('table', con=engine, schema='schema', if_exists='append', index=False, method='multi', chunksize=100_000)
                             records = []
                             print("Successfuly inserted 50 000 rows")
                         except Exception as e:
@@ -123,7 +111,7 @@ def run():
                     df = df.drop_duplicates(['unique_hash'])
                     existing = pd.read_sql(sql_query, engine)
                     mask = ~df.unique_hash.isin(existing.unique_hash)
-                    df.loc[mask].to_sql('payments_kaspi', con=engine, schema='dwh_big_data', if_exists='append', index=False, method='multi', chunksize=100_000)
+                    df.loc[mask].to_sql('table', con=engine, schema='schema', if_exists='append', index=False, method='multi', chunksize=100_000)
                     records = []
                     print("Successfuly inserted last rows")
                 except Exception as e:
@@ -142,9 +130,9 @@ def run():
             print("Engine closed")
 
 default_args = {
-    'owner': 'maguser',
+    'owner': '',
     'depends_on_past': False,
-    'email': ['dataoffice@magnum.kz'],
+    'email': [''],
     'email_on_failure': False,
     'email_on_retry': False,
 }
